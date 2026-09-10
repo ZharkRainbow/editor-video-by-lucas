@@ -64,7 +64,18 @@ def main():
 
     pts = [{"t": p["t"], "glisse": p.get("glisse", False),
              "A": p["camera"], "B": p["ecran"]} for p in data["points"]]
-    dedans = [p for p in pts if t0 - 0.01 <= p["t"] <= t1 + 0.01] or pts
+    if not pts:
+        sys.exit(f"Le fichier de cadrage est vide : aucun point enregistre.\n"
+                 f"Dans l'outil, verifie que le menu deroulant est bien sur le bon\n"
+                 f"passage AVANT de poser les cadrages, puis clique 'Poser un cadrage\n"
+                 f"ici' pour chacun avant d'envoyer.")
+    dedans = [p for p in pts if t0 - 0.01 <= p["t"] <= t1 + 0.01]
+    if not dedans:
+        hors = ", ".join(f"{q['t']:.1f}s" for q in pts[:6])
+        sys.exit(f"Aucun point dans la plage {t0:.1f} -> {t1:.1f}s.\n"
+                 f"Les points recus sont a : {hors}\n"
+                 f"Ils appartiennent a un autre passage : reselectionne le bon dans\n"
+                 f"le menu deroulant, repose les cadrages, et renvoie.")
     print(f"{len(dedans)} point(s) de cadrage dans {t0:.1f} -> {t1:.1f}s")
 
     aw, ah = taille(dedans, "A")
