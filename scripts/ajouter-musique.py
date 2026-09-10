@@ -77,7 +77,8 @@ def poser(clip: Path, piste: Path, niveau: int):
                 "normalize=0[a]",
                 "-map", "0:v", "-map", "[a]", "-c:v", "copy",
                 "-c:a", "aac", "-b:a", "192k",
-                "-metadata", f"comment={avant + ' + ' if avant else ''}{MARQUEUR}",
+                "-metadata",
+                f"comment={avant + ' + ' if avant else ''}{MARQUEUR} {niveau:.0f}",
                 "-movflags", "+faststart", str(out)])
         if not out.exists():
             return "echec mixage : " + r.stderr.strip()[-160:]
