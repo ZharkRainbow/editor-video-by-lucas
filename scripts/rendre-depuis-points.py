@@ -21,6 +21,12 @@ from pathlib import Path
 CAM = Path.home() / "Downloads/Camera.-1.mp4"
 SCR = Path.home() / "Downloads/Ecran-1.mp4"
 SCRIPTS = Path(__file__).parent
+# position des captions et du bandeau titre, par format
+HABILLAGE = {
+    "vmc":   dict(cap_y=0.4513, cap_taille=0.023, titre_y=0.4997),
+    "vcons": dict(cap_y=0.4513, cap_taille=0.023, titre_y=0.4997),
+    "hmc":   dict(cap_y=0.880,  cap_taille=0.032, titre_y=0.792, halo=True),
+}
 LAYOUT = {
     "vmc":   dict(W=1080, H=1920, a=(0, 0, 1080, 960),  b=(0, 960, 1080, 960), fond="0xD4CCBE"),
     "hmc":   dict(W=1920, H=1080, a=(0, 0, 720, 1080),  b=(720, 0, 1200, 1080), fond="0x000000"),
@@ -108,10 +114,15 @@ def main():
                        capture_output=True)
         srt = opt.get("--srt")
         if srt and Path(srt).exists():
+            hab = HABILLAGE[data.get("format", "vmc")]
             cmd = ["python3", str(SCRIPTS / "incruster-captions.py"), str(brut), srt,
-                   str(dst), "--y", "0.4513", "--taille", "0.023"]
+                   str(dst), "--y", str(hab["cap_y"]),
+                   "--taille", str(hab["cap_taille"])]
+            if hab.get("halo"):
+                cmd += ["--halo"]
             if opt.get("--titre"):
-                cmd += ["--accroche", opt["--titre"], "--accroche-y", "0.4997"]
+                cmd += ["--accroche", opt["--titre"],
+                        "--accroche-y", str(hab["titre_y"])]
             r = subprocess.run(cmd, capture_output=True, text=True)
             if r.returncode:
                 sys.exit((r.stdout or r.stderr)[-800:])

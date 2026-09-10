@@ -23,6 +23,7 @@ POLICE_TITRE = Path.home() / "Library/Fonts/ZTNature-Bold.otf"
 BLEU = "#2322E0"
 JAUNE = "#FAD400"
 TITRE_DUREE = 5.0
+HALO = False   # active par --halo : ombre floue au lieu du contour net
 
 
 def accroche_png(texte, W, H, y_rel, taille, tmp):
@@ -111,12 +112,28 @@ def png(texte, W, H, y_rel, taille, tmp, i):
         pt = int(pt * 0.93)
     base = ["-background", "none", "-colorspace", "sRGB",
             "-font", str(POLICE), "-pointsize", str(pt), "-gravity", "center"]
-    trait = max(2, pt // 14)
-    subprocess.run(["magick", *base, "-stroke", "black", "-strokewidth",
-                    str(trait), "-fill", "black", f"label:{texte}",
-                    "PNG32:" + str(tmp / "b.png")], capture_output=True)
-    subprocess.run(["magick", *base, "-stroke", "none", "-fill", JAUNE,
-                    f"label:{texte}", "PNG32:" + str(tmp / "h.png")], capture_output=True)
+    trait = max(3, pt // 10)   # contour epaissi : le texte passe souvent sur le beige clair du Canva
+    if HALO:
+        # ombre noire floue plutot qu'un contour net : plus doux a l'oeil, et
+        # ca detache le texte aussi bien sur le beige clair du Canva.
+        # rayon large et densite faible : l'ombre se diffuse au lieu de former
+        # un liseré. Comparaison faite le 10/09 sur cinq reglages.
+        rayon = max(10, int(pt / 2.2))
+        marge_halo = rayon * 3
+        subprocess.run(["magick", *base, "-fill", "black", f"label:{texte}",
+                        "-bordercolor", "none", "-border", str(marge_halo),
+                        "-blur", f"0x{rayon}",
+                        "-channel", "A", "-evaluate", "multiply", "1.3", "+channel",
+                        "PNG32:" + str(tmp / "b.png")], capture_output=True)
+        subprocess.run(["magick", *base, "-fill", JAUNE, f"label:{texte}",
+                        "-bordercolor", "none", "-border", str(marge_halo),
+                        "PNG32:" + str(tmp / "h.png")], capture_output=True)
+    else:
+        subprocess.run(["magick", *base, "-stroke", "black", "-strokewidth",
+                        str(trait), "-fill", "black", f"label:{texte}",
+                        "PNG32:" + str(tmp / "b.png")], capture_output=True)
+        subprocess.run(["magick", *base, "-stroke", "none", "-fill", JAUNE,
+                        f"label:{texte}", "PNG32:" + str(tmp / "h.png")], capture_output=True)
     subprocess.run(["magick", str(tmp / "b.png"), str(tmp / "h.png"),
                     "-gravity", "center", "-composite",
                     "-colorspace", "sRGB", "PNG32:" + str(tmp / "t.png")],
@@ -157,6 +174,8 @@ def main():
             acc_txt = sys.argv[i + 1]
         if a == "--accroche-y":
             acc_y = float(sys.argv[i + 1])
+        if a == "--halo":
+            globals()["HALO"] = True
 
     W, H = dim(src)
     taille = int(H * taille_rel)

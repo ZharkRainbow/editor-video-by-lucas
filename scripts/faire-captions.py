@@ -15,7 +15,7 @@ from pathlib import Path
 
 MODELE = Path.home() / ".cache/whisper-cpp/ggml-large-v3-turbo.bin"
 MAX_CAR = 19          # vertical : 3 a 4 mots par caption
-MAX_CAR_LONG = 72     # horizontal : 10 a 15 mots, plus de place a l'ecran
+MAX_CAR_LONG = 46     # horizontal : 7 a 8 mots. Au-dela, la contrainte 'une seule ligne' force une reduction qui rend le texte illisible.
 
 
 def captions(src: Path, long=False) -> Path | None:

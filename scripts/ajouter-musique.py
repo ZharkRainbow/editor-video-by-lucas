@@ -20,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 MUSIQUES = Path("/Users/lucasdo./Documents/Musique pour OpusClip/*Musique calme pour montage")
-NIVEAU = -36          # LUFS du lit musical, gain FIXE
+NIVEAU = -40          # LUFS du lit musical, gain FIXE. Baisse de -36 le 10/09 : trop present au casque.
 MARQUEUR = "musique"  # ecrit dans les metadonnees pour ne jamais repasser deux fois
 
 
@@ -97,7 +97,6 @@ if __name__ == "__main__":
     for a in args:
         p = Path(a)
         clips += sorted(p.rglob("*.mp4")) if p.is_dir() else [p]
-    clips = [c for c in clips if "/Vertical/" in str(c)]
 
     for i, c in enumerate(clips):
         print(f"{c.name[:46]:48s} {poser(c, pistes[i % len(pistes)], niveau)}",
