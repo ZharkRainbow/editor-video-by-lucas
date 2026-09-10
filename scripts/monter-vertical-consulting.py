@@ -130,10 +130,14 @@ if __name__ == "__main__":
     lots = json.loads((RACINE / "clips-timecodes.json").read_text("utf-8"))
     voulus = sys.argv[1:]
     for nom, clips in lots.items():
-        if nom.startswith("_") or (voulus and nom not in voulus):
+        voulus_c = [v for v in voulus if v in lots]
+        if nom.startswith("_") or (voulus_c and nom not in voulus_c):
             continue
+        seuls = [a for a in sys.argv[1:] if a not in lots]
         for clip in clips:
             titre, d, f = clip[0], clip[1], clip[2]
+            if seuls and titre not in seuls:
+                continue
             seg = clip[3] if len(clip) > 3 else None
             print(f"{nom:9s} {titre[:52]:54s} -> {monter(nom, titre, d, f, seg)}",
                   flush=True)
