@@ -18,6 +18,7 @@ from pathlib import Path
 
 DF = Path.home() / ".local/bin/deep-filter"
 CIBLE = dict(I=-14, TP=-1.5, LRA=11)
+MARQUEUR = "debruit25 + loudnorm"   # trace du passage, lue par diagnostic-debruitage.py
 ATTEN = 25
 
 
@@ -33,10 +34,15 @@ def masteriser(src: Path):
             "-c:a", "pcm_s16le", str(brut)])
         if not brut.exists():
             return "pas d'audio"
+        if not DF.exists():
+            return f"ECHEC : {DF} introuvable, rien ecrit"
         sh([str(DF), "-a", str(ATTEN), "-D", "-o", str(tmp / "df"), str(brut)])
         prop = tmp / "df" / "brut.wav"
         if not prop.exists():
-            prop = brut
+            # Ne JAMAIS retomber en silence sur l'audio brut : un fichier
+            # d'apparence normale mais non debruite ne se voit qu'a l'ecoute,
+            # des semaines plus tard.
+            return "ECHEC DEBRUITAGE, rien ecrit"
 
         # passe 1 : mesure
         f = (f"loudnorm=I={CIBLE['I']}:TP={CIBLE['TP']}:LRA={CIBLE['LRA']}"
@@ -61,6 +67,7 @@ def masteriser(src: Path):
         r = sh(["ffmpeg", "-y", "-i", str(src), "-i", str(fini),
                 "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
                 "-c:a", "aac", "-b:a", "192k", "-shortest",
+                "-metadata", f"comment={MARQUEUR}",
                 "-movflags", "+faststart", str(out)])
         if not out.exists():
             return "echec remux"

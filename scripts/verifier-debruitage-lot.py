@@ -63,13 +63,17 @@ def main():
                     continue
                 e = ecart(f)
                 total += 1
-                # a mi-chemin entre brut et reference debruitee : verdict
-                seuil = (e_brut + e_ref) / 2 if e_ref else e_brut + 6
-                ok = e is not None and e >= seuil
+                marque = subprocess.run(
+                    ["ffprobe", "-v", "error", "-show_entries", "format_tags=comment",
+                     "-of", "csv=p=0", str(f)], capture_output=True, text=True).stdout.strip()
+                # la chaine voix comprime, donc le livre reste sous la reference :
+                # on juge sur le gain par rapport au brut, confirme par le marqueur
+                gain = (e - e_brut) if e is not None else -99
+                ok = gain >= 4.0 and "debruit25" in marque
                 bons += ok
                 print(f"  {'OUI' if ok else 'NON':4s} {fmt[0]}  brut {e_brut:5.1f} | "
                       f"reference {e_ref if e_ref else float('nan'):5.1f} | "
-                      f"livre {e:5.1f}   {titre[:44]}", flush=True)
+                      f"livre {e:5.1f} | gain {gain:+5.1f} dB   {titre[:40]}", flush=True)
     print(f"\n{bons}/{total} debruites")
 
 
