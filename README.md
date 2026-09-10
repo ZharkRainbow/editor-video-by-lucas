@@ -1,4 +1,4 @@
-# montage-video
+# Editor Vidéo by Lucas
 
 Chaine de montage video pilotee par script : transformer des rushes longs en
 reels verticaux et horizontaux, sans ouvrir de logiciel de montage.
