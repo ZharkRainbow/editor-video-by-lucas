@@ -30,17 +30,24 @@ def coupe_source(src, sortie, debut, fin, segments, filtre_video, args_sortie):
             ["ffmpeg", "-y", "-ss", f"{debut:.3f}", "-to", f"{fin:.3f}", "-i", str(src)]
             + filtre_video + args_sortie + [str(sortie)],
             capture_output=True, text=True)
+    # Sans -ss avant -i, ffmpeg decode le rush depuis le debut jusqu'au premier
+    # segment : plusieurs minutes sur un 4K HEVC. On seek d'abord, puis on
+    # ramene les segments dans le repere du flux ainsi ouvert.
+    saut = max(0.0, segments[0][0] - 2.0)
+    segments = [(x - saut, y - saut) for x, y in segments]
     n = len(segments)
     fc = []
     for i, (x, y) in enumerate(segments):
-        fc.append(f"[0:v]trim=start={x:.3f}:end={y:.3f},setpts=PTS-STARTPTS[t{i}];"
-                  f"[t{i}]" + filtre_video[1] + f"[v{i}]")
+        chaine = ("," + filtre_video[1]) if len(filtre_video) > 1 else ""
+        fc.append(f"[0:v]trim=start={x:.3f}:end={y:.3f},setpts=PTS-STARTPTS"
+                  f"{chaine}[v{i}]")
         fc.append(f"[0:a]atrim=start={x:.3f}:end={y:.3f},asetpts=PTS-STARTPTS,"
                   f"afade=t=in:st=0:d=0.04,"
                   f"afade=t=out:st={max(0, y - x - 0.04):.3f}:d=0.04[a{i}]")
     fc.append("".join(f"[v{i}][a{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[v][a]")
     return subprocess.run(
-        ["ffmpeg", "-y", "-i", str(src), "-filter_complex", ";".join(fc),
+        ["ffmpeg", "-y", "-ss", f"{saut:.3f}", "-i", str(src),
+         "-filter_complex", ";".join(fc),
          "-map", "[v]", "-map", "[a]"] + args_sortie + [str(sortie)],
         capture_output=True, text=True)
 

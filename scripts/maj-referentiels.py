@@ -12,7 +12,9 @@ DUREE = {"Gauthier": 829.013, "Florian": 1511.573}
 p = Path("/Users/lucasdo./Documents/RAIZ-Claude/OFFBOUND/CONTENU/consulting-mastermind/clips-timecodes.json")
 d = json.load(open(p, encoding="utf-8"))
 for c in DUREE:
-    d[c] = [[t, a, b] for _co, t, a, b, _pr, _ac in sel[c]]
+    # seuls les clips valides ; un 4e element porte les mini-cuts eventuels
+    d[c] = [[cl[1], cl[2], cl[3]] + ([cl[6]] if len(cl) > 6 else [])
+            for cl in sel[c] if cl[4] == "prio"]
 d["_note_gauthier_florian"] = ("Selection editoriale Claude (pas d'Opus Clip sur ces deux consultings), "
                                "bornes recalees au mot pres. Priorites et accroches dans "
                                "OFFBOUND/APPS/video-reels/scripts/selection-gauthier-florian.json")
@@ -39,8 +41,10 @@ for client, duree in DUREE.items():
     bloc.append(f"Rush : {int(duree)//60:02d}:{duree%60:06.3f} · 25 fps · {len(sel[client])} clips\n")
     bloc.append("| # | Clip | Debut | Fin | Duree | Debut (s) | Fin (s) | Prio |")
     bloc.append("|---|---|---|---|---|---|---|---|")
-    for i, (_c, titre, a, b, prio, _ac) in enumerate(sel[client], 1):
-        bloc.append(f"| {i} | {titre.split(' ', 1)[1]} | `{smpte(a)}` | `{smpte(b)}` | "
+    for i, cl in enumerate(sel[client], 1):
+        titre, a, b, prio = cl[1], cl[2], cl[3], cl[4]
+        cuts = f" · {len(cl[6])} segments" if len(cl) > 6 else ""
+        bloc.append(f"| {i} | {titre.split(' ', 1)[1]}{cuts} | `{smpte(a)}` | `{smpte(b)}` | "
                     f"{b-a:.2f}s | {a:.3f} | {b:.3f} | {prio} |")
     bloc.append("")
 doc.write_text(txt.rstrip() + "\n".join(bloc) + "\n", encoding="utf-8")

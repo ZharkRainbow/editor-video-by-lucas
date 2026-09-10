@@ -25,7 +25,7 @@ TIMECODES = Path("/Users/lucasdo./Documents/RAIZ-Claude/OFFBOUND/CONTENU/"
 DF = Path.home() / ".local/bin/deep-filter"
 ATTEN = 25
 NIVEAU_MUSIQUE = -40
-MARQUEUR = "debruit25 + voix v2 + musique"
+MARQUEUR = "debruit25 + voix v2"      # sans musique : elle sera reposee apres validation
 
 # chaine voix v2, identique a affiner-voix.py. Pas de boost de presence a 4 kHz :
 # il amplifiait exactement la bande des bruits de bouche.
@@ -89,7 +89,10 @@ def decalage(rush, debut, clip, d):
 def traiter(clip: Path, rush: Path, a: float, piste: Path):
     r = sh(["ffprobe", "-v", "error", "-show_entries", "format_tags=comment",
             "-of", "csv=p=0", str(clip)])
-    if MARQUEUR in r.stdout:
+    marque = r.stdout.strip()
+    # "debruit25 + voix v2" est un prefixe de l'ancien marqueur avec musique :
+    # un simple 'in' laissait passer les fichiers qui portent encore un lit musical.
+    if marque == MARQUEUR or (MARQUEUR in marque and "musique" not in marque):
         return "deja fait"
     d = duree(clip)
     dec = decalage(rush, a, clip, d)
@@ -114,6 +117,22 @@ def traiter(clip: Path, rush: Path, a: float, piste: Path):
             "-ar", "48000", str(voix)])
         if not voix.exists():
             return "echec chaine voix"
+
+        if piste is None:
+            # pas de lit musical : on remuxe la voix seule
+            out = tmp / ("n" + clip.suffix)
+            sh(["ffmpeg", "-y", "-v", "error", "-i", str(clip), "-i", str(voix),
+                "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "192k", "-shortest",
+                "-metadata", f"comment={MARQUEUR}",
+                "-movflags", "+faststart", str(out)])
+            if not out.exists():
+                return "echec remux"
+            out.replace(clip)
+            r = sh(["ffmpeg", "-i", str(clip), "-af", "loudnorm=print_format=summary",
+                    "-f", "null", "-"])
+            m = re.search(r"Input Integrated:\s*(-?[\d.]+)", r.stderr)
+            return f"decalage {dec*1000:+5.0f} ms · sans musique -> {m.group(1) if m else '?'} LUFS"
 
         r = sh(["ffmpeg", "-i", str(piste), "-af", "loudnorm=print_format=summary",
                 "-f", "null", "-"])
@@ -155,7 +174,9 @@ def main():
     if manquantes:
         sys.exit(f"pistes introuvables : {manquantes}")
 
-    for client in sys.argv[1:]:
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    avec_musique = "--avec-musique" in sys.argv
+    for client in args:
         rush = RUSHS / f"Consulting {client}.mp4"
         if not rush.exists():
             sys.exit(f"rush absent : {rush}")
@@ -167,7 +188,7 @@ def main():
                 if not f.exists():
                     print(f"  ABSENT {fmt}/{titre}")
                     continue
-                piste = pistes[ROTATION[i % len(ROTATION)]]
+                piste = pistes[ROTATION[i % len(ROTATION)]] if avec_musique else None
                 print(f"  {fmt[0]} {titre[:44]:46s} {traiter(f, rush, a, piste)}", flush=True)
     print("\nTERMINE")
 
