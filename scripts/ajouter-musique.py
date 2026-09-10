@@ -28,6 +28,12 @@ def sh(c, **k):
     return subprocess.run(c, capture_output=True, text=True, **k)
 
 
+def marque_actuelle(f):
+    r = sh(["ffprobe", "-v", "error", "-show_entries", "format_tags=comment",
+            "-of", "csv=p=0", str(f)])
+    return r.stdout.strip()
+
+
 def deja_fait(f):
     r = sh(["ffprobe", "-v", "error", "-show_entries", "format_tags=comment",
             "-of", "default=nk=1:nw=1", str(f)])
@@ -43,6 +49,7 @@ def duree(f):
 def poser(clip: Path, piste: Path, niveau: int):
     if deja_fait(clip):
         return "deja fait, saute"
+    avant = marque_actuelle(clip)
     d = duree(clip)
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)
@@ -70,7 +77,7 @@ def poser(clip: Path, piste: Path, niveau: int):
                 "normalize=0[a]",
                 "-map", "0:v", "-map", "[a]", "-c:v", "copy",
                 "-c:a", "aac", "-b:a", "192k",
-                "-metadata", f"comment={MARQUEUR}",
+                "-metadata", f"comment={avant + ' + ' if avant else ''}{MARQUEUR}",
                 "-movflags", "+faststart", str(out)])
         if not out.exists():
             return "echec mixage : " + r.stderr.strip()[-160:]
