@@ -223,7 +223,7 @@ setInterval(()=>{if(joue){maj();if(vid.currentTime>=borneB-0.05){vid.pause();pla
 // points
 function rail(){
  const r=vId('rail');[...r.querySelectorAll('.mk,.zone')].forEach(n=>n.remove());
- const p=[...points].sort((a,b)=>a.t-b.t);
+ const p=[...points].filter(dansPassage).sort((a,b)=>a.t-b.t);
  p.forEach((pt,i)=>{
   if(i<p.length-1&&pt.glisse){const z=document.createElement('div');z.className='zone';
    z.style.left=((pt.t-borneA)/(borneB-borneA)*100)+'%';z.style.width=((p[i+1].t-pt.t)/(borneB-borneA)*100)+'%';r.appendChild(z)}
@@ -236,8 +236,8 @@ function aller(i){sel=i;const p=points[i];
  crop.A={...p.A};crop.B={...p.B};place(p.t);boites();table();rail();vId('maj').disabled=false}
 function table(){
  const tb=vId('pts');tb.innerHTML='';
- const tri=[...points].sort((a,b)=>a.t-b.t);
- vId('nbPts').textContent=points.length?points.length+' point(s)':'aucun';
+ const tri=[...points].filter(dansPassage).sort((a,b)=>a.t-b.t);
+ vId('nbPts').textContent=tri.length?tri.length+' point(s)':'aucun';
  tri.forEach(p=>{const i=points.indexOf(p),tr=document.createElement('tr');
   tr.dataset.i=i;if(i===sel)tr.className='on';
   const m=Math.floor(p.t/60);
@@ -251,9 +251,11 @@ function table(){
   tr.lastChild.appendChild(b);tb.appendChild(tr)});
  sortie()}
 function nomPassage(){const s=vId('passage');return s.value===''?'':PASSAGES[+s.value][0]}
+function dansPassage(p){return p.t>=borneA-0.01&&p.t<=borneB+0.01}
 function sortie(){
  vId('sortie').value=JSON.stringify({format:fmt,passage:nomPassage(),source:{w:SRC_W,h:SRC_H},
-  points:[...points].sort((a,b)=>a.t-b.t).map(p=>({t:+p.t.toFixed(2),glisse:!!p.glisse,camera:p.A,ecran:p.B}))})}
+  points:[...points].filter(dansPassage).sort((a,b)=>a.t-b.t)
+   .map(p=>({t:+p.t.toFixed(2),glisse:!!p.glisse,camera:p.A,ecran:p.B}))})}
 vId('ajouter').onclick=()=>{points.push({t:vid.currentTime,A:{...crop.A},B:{...crop.B}});
  sel=points.length-1;vId('maj').disabled=false;table();rail()};
 vId('maj').onclick=()=>{if(sel<0)return;points[sel].A={...crop.A};points[sel].B={...crop.B};table();rail()};
@@ -287,7 +289,7 @@ PASSAGES.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.te
 selP.onchange=()=>{
  if(selP.value===''){borneA=0;borneB=1466.5}
  else{const p=PASSAGES[+selP.value];borneA=p[1];borneB=p[2]}
- place(borneA);rail();maj()};
+ place(borneA);sel=-1;vId('maj').disabled=true;table();rail();maj()};
 function reflets(){
  for(const [c,ctx2,dec] of [[mirA,mcA,0],[mirB,mcB,DEMI]]){
   if(c.width!==DEMI){c.width=DEMI;c.height=360}
