@@ -221,3 +221,56 @@ temps relatif au debut de l'extrait puisque `-ss` remet l'horloge a zero.
   uniformes sur des frames echantillonnees) pour pre-remplir les points.
 - Zoom anime, qui demanderait de sortir de `crop`.
 - Rendu de previsualisation basse resolution pour valider avant le rendu final.
+
+---
+
+## LA cause racine, trouvee le 2026-09-10 par un test navigateur
+
+`SimpleHTTPRequestHandler` de Python **ne gere pas les requetes Range HTTP**.
+Il repond `200` avec le fichier entier au lieu de `206 Partial Content`.
+
+Consequence sur une video de 146 Mo servie en local : le navigateur ne peut pas
+se deplacer dedans. Chaque `currentTime = t` redemande le fichier depuis le
+debut, le decodeur repart de zero, et l'image reste figee sur les premieres
+frames pendant que l'audio, lui, avance.
+
+**Tous les "bugs de synchronisation" venaient de la.** Les correctifs
+successifs (images-cles denses, seek bloquant, audio maitre, recalage par
+`playbackRate`, fusion des trois medias en un seul) etaient des ameliorations
+reelles mais ne pouvaient rien contre ca.
+
+Verification en une ligne :
+
+```bash
+curl -s -D - -o /dev/null -r 1000000-1000500 http://localhost:8765/proxy.mp4 | head -3
+# doit repondre 206 Partial Content + Content-Range, pas 200
+```
+
+`serveur.py` implemente donc Range dans `send_head` et `copyfile`.
+
+**Lecon de methode.** Quatre correctifs ont ete livres a l'aveugle sur la foi
+d'un raisonnement plausible, et aucun n'a resolu le probleme parce qu'aucun ne
+visait la vraie cause. Le premier test reel dans un navigateur a donne la
+reponse en deux appels : `readyState: 0` et `Content-Range: null`.
+Sur un bug d'integration, instrumenter avant de corriger.
+
+## Etat verifie de l'outil au 2026-09-10
+
+Teste dans Chrome, pas seulement raisonne :
+
+| Point | Resultat |
+|---|---|
+| Chargement du proxy | 1280x360, 1466,6 s, readyState 4 |
+| Seek a 5s / 600s / 1200s | images differentes, plus de gel |
+| Clic dans la timeline | position et image suivent, compteur a jour |
+| Lecture | avance de 3,0 s en 3 s, image animee, son actif |
+| Miroir camera | moitie gauche seule |
+| Miroir ecran | moitie droite seule |
+| Echelle des cadres | 367 px attendus, 367 px mesures |
+
+Deux pieges d'affichage corriges au passage :
+- un `.wrap` en `position:relative` sans largeur prend toute la largeur du
+  parent ; les enfants en `position:absolute` sont alors a la mauvaise echelle.
+  `display:inline-block; width:fit-content`.
+- un `<canvas>` sans attribut `width` vaut **300x150** par defaut. Tout calcul
+  d'echelle fait avant le premier dessin est faux.

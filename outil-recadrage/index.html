@@ -19,8 +19,9 @@ main{display:grid;grid-template-columns:1fr 330px;gap:12px;padding:12px;height:c
 .val{font:11px ui-monospace,monospace;color:var(--jaune);text-transform:none;letter-spacing:0}
 .val b{color:#ff5b7a}
 .stage{position:relative;line-height:0;overflow:hidden;flex:1;display:flex;align-items:center;justify-content:center;background:#000}
-.stage video{max-width:100%;max-height:100%;display:block}
-.wrap{position:relative;line-height:0}
+.stage video,.stage canvas{max-width:100%;max-height:100%;display:block}
+
+.wrap{position:relative;line-height:0;display:inline-block;width:fit-content}
 .box{position:absolute;border:2px solid var(--jaune);box-shadow:0 0 0 4000px rgba(0,0,0,.6);cursor:move}
 .box.sel{border-color:#4ef}
 .box i{position:absolute;width:16px;height:16px;background:var(--jaune);border-radius:3px;border:2px solid #141417}
@@ -67,10 +68,10 @@ textarea{width:100%;height:90px;background:#141417;color:var(--jaune);border:1px
 <main>
   <div class="sources">
     <div class="src"><h2>Camera — haut <span class="val" id="valA"></span></h2>
-      <div class="stage"><div class="wrap"><video id="vA" src="proxy-camera.mp4" muted playsinline preload="auto"></video>
+      <div class="stage"><div class="wrap" id="wA"><canvas id="miroirA" width="640" height="360"></canvas>
         <div class="box" id="bA"><i class="nw"></i><i class="ne"></i><i class="sw"></i><i class="se"></i></div></div></div></div>
     <div class="src"><h2>Ecran — bas <span class="val" id="valB"></span></h2>
-      <div class="stage"><div class="wrap"><video id="vB" src="proxy-ecran.mp4" muted playsinline preload="auto"></video>
+      <div class="stage"><div class="wrap" id="wB"><canvas id="miroirB" width="640" height="360"></canvas>
         <div class="box" id="bB"><i class="nw"></i><i class="ne"></i><i class="sw"></i><i class="se"></i></div></div></div></div>
   </div>
   <aside>
@@ -88,6 +89,7 @@ textarea{width:100%;height:90px;background:#141417;color:var(--jaune);border:1px
   </aside>
 </main>
 
+<video id="vid" src="proxy.mp4" playsinline preload="auto" style="position:fixed;left:-4px;top:-4px;width:2px;height:2px;opacity:.01;pointer-events:none"></video>
 <div class="piste">
   <div class="rail" id="rail"><div class="tete" id="tete"></div></div>
   <div class="cmd">
@@ -99,7 +101,7 @@ textarea{width:100%;height:90px;background:#141417;color:var(--jaune);border:1px
     <button class="act" id="ajouter">Poser un cadrage ici</button>
     <button class="act g" id="maj" disabled>Corriger ce point</button>
     <button class="act g" id="prec">&lt; point precedent</button><button class="act g" id="suiv">point suivant &gt;</button>
-    <audio id="son" src="audio.m4a" preload="auto"></audio>
+    
   </div>
 </div>
 
@@ -120,7 +122,13 @@ const PASSAGES=[["VAL 1 — Mes systemes pour recruter des A-players",0,63.5],
  ["VAL 6 — J'ai eu +100 candidatures",903.0,974.5],
  ["VAL 7 — J'ai envoye 450 messages",1045.9,1084.0]];
 let borneA=0, borneB=1466.5;
-const vA=vId('vA'),vB=vId('vB'),son=vId('son'),cvs=vId('apercu'),ctx=cvs.getContext('2d');
+const vid=vId('vid'),cvs=vId('apercu'),ctx=cvs.getContext('2d');
+const mirA=vId('miroirA'),mcA=mirA.getContext('2d');
+const mirB=vId('miroirB'),mcB=mirB.getContext('2d');
+// Le proxy contient les DEUX rushes cote a cote (1280x360) plus l'audio.
+// Un seul element media : il ne peut pas se desynchroniser d'avec lui-meme.
+const DEMI=640, ECH=SRC_W/DEMI;   // 3840 / 640 = 6
+const vA=vid, vB=vid, son=vid;
 const crop={A:{x:400,y:120,w:2200,h:1956},B:{x:800,y:120,w:2200,h:1956}};
 function vId(i){return document.getElementById(i)}
 function ratio(k){const f=FORMATS[fmt],z=k==='A'?f.a:f.b;return z.w/z.h}
@@ -154,11 +162,11 @@ function apercu(){
  const f=FORMATS[fmt];
  if(cvs.width!==f.W){cvs.width=f.W;cvs.height=f.H}
  ctx.fillStyle=f.fond;ctx.fillRect(0,0,f.W,f.H);
- const c = (joue && points.length) ? cadrageA(son.currentTime)||{A:crop.A,B:crop.B} : {A:crop.A,B:crop.B};
- const sB = fmt==='vcons'?vA:vB, e=SRC_W/(vA.videoWidth||640);
+ const c = (joue && points.length) ? cadrageA(vid.currentTime)||{A:crop.A,B:crop.B} : {A:crop.A,B:crop.B};
+ const decB = (fmt==='vcons') ? 0 : DEMI;   // consulting : les deux cadres dans le meme rush
  try{
-  ctx.drawImage(vA,c.A.x/e,c.A.y/e,c.A.w/e,c.A.h/e,f.a.x,f.a.y,f.a.w,f.a.h);
-  ctx.drawImage(sB,c.B.x/e,c.B.y/e,c.B.w/e,c.B.h/e,f.b.x,f.b.y,f.b.w,f.b.h);
+  ctx.drawImage(vid,c.A.x/ECH,c.A.y/ECH,c.A.w/ECH,c.A.h/ECH,f.a.x,f.a.y,f.a.w,f.a.h);
+  ctx.drawImage(vid,decB+c.B.x/ECH,c.B.y/ECH,c.B.w/ECH,c.B.h/ECH,f.b.x,f.b.y,f.b.w,f.b.h);
  }catch(err){}
  requestAnimationFrame(apercu)}
 // glisser, molette, clavier
@@ -195,46 +203,23 @@ addEventListener('keydown',e=>{
 function attendre(el){return new Promise(r=>{
  if(el.readyState>=2&&!el.seeking)return r();
  el.addEventListener('seeked',r,{once:true});setTimeout(r,500)})}
-function place(t,garderLecture){
- t=Math.max(borneA,Math.min(borneB,t));
- const repart = garderLecture===undefined ? joue : garderLecture;
- vA.pause();vB.pause();son.pause();
- vA.playbackRate=vB.playbackRate=1;
- vA.currentTime=t;vB.currentTime=t;son.currentTime=t;
- maj();
- if(repart){Promise.all([attendre(vA),attendre(vB),attendre(son)])
-   .then(()=>{if(joue){vA.play();vB.play();son.play()}})}}
-function maj(){const t=joue?son.currentTime:vA.currentTime,m=Math.floor(t/60);
+function place(t){vid.currentTime=Math.max(borneA,Math.min(borneB,t));maj()}
+function maj(){const t=vid.currentTime,m=Math.floor(t/60);
  vId('tc').textContent=String(m).padStart(2,'0')+':'+(t-60*m).toFixed(1).padStart(4,'0');
  vId('tete').style.left=((t-borneA)/(borneB-borneA)*100)+'%'}
 vId('rail').addEventListener('pointerdown',e=>{
  if(e.target.classList.contains('mk'))return;
  const r=e.currentTarget.getBoundingClientRect();place(borneA+(e.clientX-r.left)/r.width*(borneB-borneA))});
 vId('play').onclick=e=>{joue=!joue;
- if(joue){vA.play();vB.play();son.play();e.target.textContent='Pause'}
- else{vA.pause();vB.pause();son.pause();vA.playbackRate=vB.playbackRate=1;e.target.textContent='Lecture'}};
+ if(joue){vid.play().catch(()=>{joue=false;e.target.textContent='Lecture';
+   vId('etat').textContent='Lecture refusee par le navigateur, reclique.'});
+  e.target.textContent='Pause'}
+ else{vid.pause();e.target.textContent='Lecture'}};
+vid.addEventListener('pause',()=>{joue=false;vId('play').textContent='Lecture'});
+vid.addEventListener('play',()=>{joue=true;vId('play').textContent='Pause'});
 for(const [id,d] of [['m10',-10],['m1',-1],['p1',1],['p10',10]])
- vId(id).onclick=()=>place((joue?son.currentTime:vA.currentTime)+d);
-setInterval(()=>{if(joue)maj()},80);
-// Recalage des images sur le son.
-// Piege : forcer currentTime declenche un seek, qui prend souvent plus de temps
-// que l'intervalle de surveillance. On relance alors un seek avant la fin du
-// precedent, la video ne se decode jamais et l'image reste figee sur les
-// premieres frames, en boucle. C'est exactement ce qui arrivait a 300 ms.
-// Donc : on ne touche a rien tant qu'un seek est en cours, on ne seek que sur un
-// gros ecart, et on rattrape les petites derives par la VITESSE de lecture, ce
-// qui n'interrompt jamais le decodage.
-setInterval(()=>{
- if(!joue)return;
- const t=son.currentTime;
- if(t>=borneB-0.05){vId('play').click();place(borneB,false);return}
- for(const v of [vA,vB]){
-  if(v.seeking||v.readyState<3)continue;
-  const d=v.currentTime-t;
-  if(Math.abs(d)>0.60){v.currentTime=t;v.playbackRate=1}
-  else v.playbackRate=Math.max(0.90,Math.min(1.10,1-d*0.6));
- }
-},500);
+ vId(id).onclick=()=>place((vid.currentTime)+d);
+setInterval(()=>{if(joue){maj();if(vid.currentTime>=borneB-0.05){vid.pause();place(borneB)}}},80);
 // points
 function rail(){
  const r=vId('rail');[...r.querySelectorAll('.mk,.zone')].forEach(n=>n.remove());
@@ -269,12 +254,12 @@ function nomPassage(){const s=vId('passage');return s.value===''?'':PASSAGES[+s.
 function sortie(){
  vId('sortie').value=JSON.stringify({format:fmt,passage:nomPassage(),source:{w:SRC_W,h:SRC_H},
   points:[...points].sort((a,b)=>a.t-b.t).map(p=>({t:+p.t.toFixed(2),glisse:!!p.glisse,camera:p.A,ecran:p.B}))})}
-vId('ajouter').onclick=()=>{points.push({t:joue?son.currentTime:vA.currentTime,A:{...crop.A},B:{...crop.B}});
+vId('ajouter').onclick=()=>{points.push({t:vid.currentTime,A:{...crop.A},B:{...crop.B}});
  sel=points.length-1;vId('maj').disabled=false;table();rail()};
 vId('maj').onclick=()=>{if(sel<0)return;points[sel].A={...crop.A};points[sel].B={...crop.B};table();rail()};
-vId('prec').onclick=()=>{const T=joue?son.currentTime:vA.currentTime;const p=[...points].sort((a,b)=>a.t-b.t).filter(x=>x.t<T-.2);
+vId('prec').onclick=()=>{const T=vid.currentTime;const p=[...points].sort((a,b)=>a.t-b.t).filter(x=>x.t<T-.2);
  if(p.length)aller(points.indexOf(p[p.length-1]))};
-vId('suiv').onclick=()=>{const T=joue?son.currentTime:vA.currentTime;const p=[...points].sort((a,b)=>a.t-b.t).find(x=>x.t>T+.2);
+vId('suiv').onclick=()=>{const T=vid.currentTime;const p=[...points].sort((a,b)=>a.t-b.t).find(x=>x.t>T+.2);
  if(p)aller(points.indexOf(p))};
 vId('envoyer').onclick=async()=>{
  const b=vId('envoyer'), e=vId('etat');
@@ -303,6 +288,14 @@ selP.onchange=()=>{
  if(selP.value===''){borneA=0;borneB=1466.5}
  else{const p=PASSAGES[+selP.value];borneA=p[1];borneB=p[2]}
  place(borneA);rail();maj()};
-vA.addEventListener('loadeddata',()=>{boites();table();rail();apercu()});
+function reflets(){
+ for(const [c,ctx2,dec] of [[mirA,mcA,0],[mirB,mcB,DEMI]]){
+  if(c.width!==DEMI){c.width=DEMI;c.height=360}
+  try{ctx2.drawImage(vid,dec,0,DEMI,360,0,0,DEMI,360)}catch(e){}}
+ if(!reflets.fait){reflets.fait=true;boites()}
+ requestAnimationFrame(reflets)}
+vid.addEventListener('loadeddata',()=>{
+ vId('wA').style.width=vId('wB').style.width='100%';
+ boites();table();rail();apercu();reflets()});
 addEventListener('resize',boites);
 </script></body></html>
