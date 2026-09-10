@@ -56,6 +56,16 @@ adapter sur une autre machine. Plusieurs scripts portent encore leurs chemins
 en dur : les faire tous passer par `config.py` est le premier chantier a mener
 avant d'en faire une application.
 
+## Documentation
+
+| Fichier | Ce qu'il contient |
+|---|---|
+| `docs/architecture.md` | comment la chaine est construite et **pourquoi**, les contraintes de l'environnement, les formats de donnees, les invariants, la feuille de route |
+| `docs/journal-des-retours.md` | chaque reglage avec le retour qui l'a produit : ne pas defaire un reglage par ignorance |
+| `docs/notes-techniques.md` | les pieges rencontres avec leur cause, et l'annexe sur l'outil de recadrage |
+
+Lire `architecture.md` en premier si vous reprenez le projet.
+
 ## Regles apprises a la dure
 
 Elles sont detaillees dans `docs/notes-techniques.md`, avec leur cause. Les
