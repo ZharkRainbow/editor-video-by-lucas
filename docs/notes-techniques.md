@@ -274,3 +274,85 @@ Deux pieges d'affichage corriges au passage :
   `display:inline-block; width:fit-content`.
 - un `<canvas>` sans attribut `width` vaut **300x150** par defaut. Tout calcul
   d'echelle fait avant le premier dessin est faux.
+
+---
+
+# Annexe : selection, calage et son (2026-09-10)
+
+## Le debruitage qui n'existait pas
+
+Symptome : sur les reels de consulting, on entend le brouhaha de la salle par
+dessus la voix, au point de couvrir le lit musical. Aucun marqueur ne disait si
+le debruitage avait tourne.
+
+**Comment le prouver sans se fier aux metadonnees.** Mesurer, dans la bande
+3-8 kHz (celle du brouhaha), l'ecart entre le niveau de parole (percentile 95
+des fenetres de 100 ms) et le plancher (percentile 10) :
+
+| Version | Ecart |
+|---|---|
+| rush brut | 22,4 dB |
+| rush + `deep-filter -a 25` + loudnorm | 35,2 dB |
+| fichier livre | 21,2 dB |
+
+Le fichier livre avait la signature du brut. Verifie aussi que la musique a
+-40 LUFS ne fausse pas la mesure : remixee sur la version debruitee, l'ecart
+reste a 35,2 dB. C'est `diagnostic-debruitage.py`, seuil a 30 dB.
+
+**Les deux causes, cumulees.**
+
+1. `masteriser-audio.py` retombait sur l'audio non traite quand `deep-filter`
+   ne produisait rien, et continuait jusqu'au bout en affichant un resultat
+   d'apparence normale. Un traitement de son doit echouer bruyamment.
+2. Les rendus vertical et horizontal repartent du rush 4K. Ils ecrasent donc
+   l'audio masterise du 1080p. Ensuite la chaine voix et la musique tournaient
+   sur ces nouveaux fichiers, et aucune des deux ne debruite.
+
+**Ne jamais debruiter par-dessus une musique deja mixee.** DeepFilterNet traite
+tout ce qui n'est pas de la parole comme du bruit : il detruit la musique. Il
+faut reconstruire depuis le rush, dans l'ordre
+`rush -> deep-filter -> chaine voix -> musique -> remux -c:v copy`.
+
+**Retrouver quelle musique etait posee sur quel clip.** L'attribution de
+`ajouter-musique.py` est `pistes[i % len(pistes)]` sur la liste triee des
+clips : elle se reproduit a l'identique, et le journal d'execution la confirme
+clip par clip.
+
+## Caler une borne au mot pres
+
+L'interpolation lineaire dans un segment SRT (position du caractere rapportee a
+la duree du segment) donne **1 a 2 s d'erreur**. C'est assez pour qu'un extrait
+demarre sur la fin de la phrase precedente, ou coupe un mot en deux.
+
+`affiner-bornes.py` retranscrit une fenetre de +/- 8 s autour de chaque borne en
+mot-a-mot (`whisper-cli -ml 1`) et recale sur le mot cible. Trois pieges :
+
+- **Aplatir en tokens.** whisper rend "qu'il" en un seul mot, la cible en deux
+  tokens. Comparer mot a mot echoue ; comparer token a token fonctionne, chaque
+  token gardant le timestamp de son mot.
+- **Un repli tolerant peut se tromper de scene.** Quand une phrase apparait deux
+  fois dans le rush, `difflib` attrape parfois la mauvaise occurrence et recule
+  le clip de plusieurs secondes. Toujours verifier que la borne corrigee reste
+  proche de la borne d'origine.
+- **whisper sature en fin de fenetre.** Les derniers mots recoivent tous le meme
+  timestamp. Utiliser une fenetre courte et bien centree, ou croiser avec
+  `silencedetect` qui, lui, est fiable.
+
+Le controle final ne se discute pas : `controler-extraits.py` transcrit 4 s au
+debut et 4 s a la fin de chaque fichier produit et on lit le resultat.
+
+## Mini-cuts : retirer les hesitations
+
+Un temoignage client gagne enormement a etre resserre. Sur un extrait de 25 s,
+retirer une reprise ("en six mois, enfin il y a six mois"), un aparte et une
+repetition l'a ramene a 15 s sans rien perdre du fond.
+
+Format : un quatrieme element dans `clips-timecodes.json`, liste de segments a
+recoller. Chaque jointure recoit un **fondu audio de 40 ms** de chaque cote,
+sans quoi elle claque.
+
+**Piege ffmpeg.** Dans un `filter_complex` multi-segments, les labels de flux
+(`[a]`, `[val]`...) ne peuvent pas etre reutilises d'un segment a l'autre. Pour
+un montage qui a lui-meme des labels internes, comme un split screen, recoller
+d'abord les segments dans un fichier intermediaire, puis appliquer le montage.
+
