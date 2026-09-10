@@ -1,0 +1,8 @@
+# proxys et rushes : lourds, regenerables
+outil-recadrage/*.mp4
+outil-recadrage/*.m4a
+*.mp4
+*.mov
+*.wav
+__pycache__/
+.DS_Store

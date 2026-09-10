@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recadrage Offbound</title>
+<style>
+:root{--bleu:#2322E0;--jaune:#FAD400;--noir:#191919;--gris:#26262b;--bord:#3a3a42}
+*{box-sizing:border-box}
+body{margin:0;background:#141417;color:#e8e8ea;font:13px/1.5 -apple-system,system-ui,sans-serif;overflow:hidden}
+header{display:flex;align-items:center;gap:16px;padding:10px 16px;background:var(--noir);border-bottom:1px solid var(--bord)}
+h1{font-size:14px;margin:0;font-weight:600}
+.seg{display:flex;border:1px solid var(--bord);border-radius:7px;overflow:hidden}
+.seg button{background:var(--gris);color:#aaa;border:0;padding:6px 13px;cursor:pointer;font-size:12px}
+.seg button.on{background:var(--bleu);color:#fff}
+.sp{flex:1}
+main{display:grid;grid-template-columns:1fr 330px;gap:12px;padding:12px;height:calc(100vh - 168px)}
+.sources{display:grid;grid-template-rows:1fr 1fr;gap:10px;min-height:0}
+.src{background:var(--gris);border:1px solid var(--bord);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.src h2{font-size:11px;margin:0;padding:6px 10px;background:#1e1e23;color:#9a9aa2;font-weight:600;text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between}
+.val{font:11px ui-monospace,monospace;color:var(--jaune);text-transform:none;letter-spacing:0}
+.val b{color:#ff5b7a}
+.stage{position:relative;line-height:0;overflow:hidden;flex:1;display:flex;align-items:center;justify-content:center;background:#000}
+.stage video{max-width:100%;max-height:100%;display:block}
+.wrap{position:relative;line-height:0}
+.box{position:absolute;border:2px solid var(--jaune);box-shadow:0 0 0 4000px rgba(0,0,0,.6);cursor:move}
+.box.sel{border-color:#4ef}
+.box i{position:absolute;width:16px;height:16px;background:var(--jaune);border-radius:3px;border:2px solid #141417}
+.box i.nw{left:-8px;top:-8px;cursor:nwse-resize}.box i.ne{right:-8px;top:-8px;cursor:nesw-resize}
+.box i.sw{left:-8px;bottom:-8px;cursor:nesw-resize}.box i.se{right:-8px;bottom:-8px;cursor:nwse-resize}
+aside{background:var(--gris);border:1px solid var(--bord);border-radius:8px;padding:12px;overflow:auto;min-height:0}
+aside h2{font-size:11px;margin:0 0 8px;color:#9a9aa2;text-transform:uppercase;letter-spacing:.5px}
+#apercu{width:100%;background:#000;border-radius:5px;display:block;max-height:44vh;object-fit:contain}
+.piste{padding:8px 16px 14px;background:var(--noir);border-top:1px solid var(--bord)}
+.rail{position:relative;height:38px;background:#1b1b20;border:1px solid var(--bord);border-radius:6px;cursor:pointer;margin-bottom:8px}
+.zone{position:absolute;top:0;bottom:0;background:rgba(35,34,224,.25);border-left:2px solid var(--bleu);pointer-events:none}
+.mk{position:absolute;top:0;bottom:0;width:3px;background:var(--jaune);cursor:pointer}
+.mk:hover,.mk.on{background:#4ef;width:5px;margin-left:-1px}
+.mk span{position:absolute;top:-1px;left:4px;font:10px ui-monospace,monospace;color:var(--jaune);white-space:nowrap;pointer-events:none}
+.tete{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;pointer-events:none;box-shadow:0 0 6px #fff}
+.cmd{display:flex;gap:8px;align-items:center}
+button.act{background:var(--bleu);color:#fff;border:0;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+button.act.g{background:#34343c}
+button.act:disabled{opacity:.35;cursor:default}
+.tc{font:13px ui-monospace,Menlo,monospace;color:var(--jaune);min-width:96px}
+table{width:100%;border-collapse:collapse;font:11px ui-monospace,monospace}
+td,th{text-align:left;padding:3px 5px;border-bottom:1px solid var(--bord)}
+th{color:#8a8a92}
+tr.on td{background:rgba(78,255,255,.12)}
+tr[data-i]{cursor:pointer}
+td button{background:none;border:0;color:#ff5b7a;cursor:pointer;font-size:14px}
+.hint{color:#8a8a92;font-size:11px;line-height:1.5;margin:8px 0 0}
+textarea{width:100%;height:90px;background:#141417;color:var(--jaune);border:1px solid var(--bord);border-radius:5px;font:10px ui-monospace,monospace;padding:6px;margin-top:6px}
+</style></head><body>
+
+<header>
+  <h1>Recadrage Offbound</h1>
+  <div class="seg" id="fmt">
+    <button data-f="vmc" class="on">Vertical 50/50</button>
+    <button data-f="hmc">Horizontal</button>
+    <button data-f="vcons">Vertical consulting</button>
+  </div>
+  <select id="passage" style="background:var(--gris);color:#ddd;border:1px solid var(--bord);border-radius:6px;padding:6px 8px;font-size:12px">
+    <option value="">Toute la masterclass (24:26)</option></select>
+  <span class="val" id="infoFmt"></span><span class="sp"></span>
+  <button class="act g" id="charger">Reprendre une session</button>
+</header>
+
+<main>
+  <div class="sources">
+    <div class="src"><h2>Camera — haut <span class="val" id="valA"></span></h2>
+      <div class="stage"><div class="wrap"><video id="vA" src="proxy-camera.mp4" muted playsinline preload="auto"></video>
+        <div class="box" id="bA"><i class="nw"></i><i class="ne"></i><i class="sw"></i><i class="se"></i></div></div></div></div>
+    <div class="src"><h2>Ecran — bas <span class="val" id="valB"></span></h2>
+      <div class="stage"><div class="wrap"><video id="vB" src="proxy-ecran.mp4" muted playsinline preload="auto"></video>
+        <div class="box" id="bB"><i class="nw"></i><i class="ne"></i><i class="sw"></i><i class="se"></i></div></div></div></div>
+  </div>
+  <aside>
+    <h2>Apercu</h2><canvas id="apercu"></canvas>
+    <h2 style="margin-top:12px">Cadrages poses <span class="val" id="nbPts"></span></h2>
+    <table><tbody id="pts"></tbody></table>
+    <p class="hint"><b>Par defaut le cadrage TIENT</b> jusqu'au point suivant, puis saute.
+    Coche <b>glisse</b> sur un point si tu veux qu'il derive doucement vers le suivant.<br>
+    Clic sur un marqueur ou une ligne pour t'y placer et recharger son cadrage.
+    <b>Corriger ce point</b> ecrase le point selectionne avec le cadre actuel.</p>
+    <textarea id="sortie" readonly></textarea>
+    <button class="act" style="width:100%;margin-top:6px" id="envoyer">Envoyer a Claude</button>
+    <button class="act g" style="width:100%;margin-top:5px" id="copier">ou copier le JSON</button>
+    <p class="hint" id="etat"></p>
+  </aside>
+</main>
+
+<div class="piste">
+  <div class="rail" id="rail"><div class="tete" id="tete"></div></div>
+  <div class="cmd">
+    <button class="act" id="play">Lecture</button>
+    <span class="tc" id="tc">00:00.0</span>
+    <button class="act g" id="m10">-10s</button><button class="act g" id="m1">-1s</button>
+    <button class="act g" id="p1">+1s</button><button class="act g" id="p10">+10s</button>
+    <span class="sp"></span>
+    <button class="act" id="ajouter">Poser un cadrage ici</button>
+    <button class="act g" id="maj" disabled>Corriger ce point</button>
+    <button class="act g" id="prec">&lt; point precedent</button><button class="act g" id="suiv">point suivant &gt;</button>
+    <audio id="son" src="audio.m4a" preload="auto"></audio>
+  </div>
+</div>
+
+<script>
+const SRC_W=3840,SRC_H=2160;
+let DUREE=1466.5;
+const FORMATS={
+ vmc:{nom:"1080x1920 — 50/50",W:1080,H:1920,a:{x:0,y:0,w:1080,h:960},b:{x:0,y:960,w:1080,h:960},fond:"#D4CCBE"},
+ hmc:{nom:"1920x1080 — camera 720 a gauche",W:1920,H:1080,a:{x:0,y:0,w:720,h:1080},b:{x:720,y:0,w:1200,h:1080},fond:"#000"},
+ vcons:{nom:"1080x1920 — deux etages, meme rush",W:1080,H:1920,a:{x:0,y:0,w:1080,h:960},b:{x:0,y:960,w:1080,h:960},fond:"#000"}};
+let fmt="vmc", points=[], sel=-1, actif='B', joue=false;
+// les 7 selections de Valentin, pour cadrer passage par passage
+const PASSAGES=[["VAL 1 — Mes systemes pour recruter des A-players",0,63.5],
+ ["VAL 2 — Les 5 premiers recrutements",176.5,259.3],
+ ["VAL 3 — La formule pour savoir combien payer",442.0,544.6],
+ ["VAL 4 — Les maths derriere un recrutement",649.7,739.5],
+ ["VAL 5 — Funnel de recrutement = Funnel de vente",728.0,808.1],
+ ["VAL 6 — J'ai eu +100 candidatures",903.0,974.5],
+ ["VAL 7 — J'ai envoye 450 messages",1045.9,1084.0]];
+let borneA=0, borneB=1466.5;
+const vA=vId('vA'),vB=vId('vB'),son=vId('son'),cvs=vId('apercu'),ctx=cvs.getContext('2d');
+const crop={A:{x:400,y:120,w:2200,h:1956},B:{x:800,y:120,w:2200,h:1956}};
+function vId(i){return document.getElementById(i)}
+function ratio(k){const f=FORMATS[fmt],z=k==='A'?f.a:f.b;return z.w/z.h}
+function clamp(k){const c=crop[k],r=ratio(k);
+ c.h=Math.round(c.w/r);
+ if(c.h>SRC_H){c.h=SRC_H;c.w=Math.round(c.h*r)}
+ if(c.w>SRC_W){c.w=SRC_W;c.h=Math.round(c.w/r)}
+ c.x=Math.max(0,Math.min(Math.round(c.x),SRC_W-c.w));
+ c.y=Math.max(0,Math.min(Math.round(c.y),SRC_H-c.h))}
+function boites(){for(const k of ['A','B']){clamp(k);
+ const c=crop[k],box=vId('b'+k),v=box.previousElementSibling,s=v.clientWidth/SRC_W;
+ box.style.left=(c.x*s)+'px';box.style.top=(c.y*s)+'px';
+ box.style.width=(c.w*s)+'px';box.style.height=(c.h*s)+'px';
+ box.classList.toggle('sel',actif===k);
+ const bv=(SRC_H-c.h)===0,bh=(SRC_W-c.w)===0;
+ vId('val'+k).innerHTML=`${c.w}x${c.h} @ ${c.x},${c.y}`+(bv?' <b>bloque en hauteur</b>':'')+(bh?' <b>bloque en largeur</b>':'')}}
+// interpolation entre deux points poses
+function cadrageA(t){
+ if(!points.length)return null;
+ const p=[...points].sort((a,b)=>a.t-b.t);
+ if(t<=p[0].t)return p[0];
+ if(t>=p[p.length-1].t)return p[p.length-1];
+ for(let i=0;i<p.length-1;i++){if(t>=p[i].t&&t<=p[i+1].t){
+   if(!p[i].glisse)return p[i];              // palier : on tient la valeur
+   const f=(t-p[i].t)/(p[i+1].t-p[i].t),m=(a,b)=>Math.round(a+(b-a)*f);
+   const mix=z=>({x:m(p[i][z].x,p[i+1][z].x),y:m(p[i][z].y,p[i+1][z].y),
+                  w:m(p[i][z].w,p[i+1][z].w),h:m(p[i][z].h,p[i+1][z].h)});
+   return {t,A:mix('A'),B:mix('B')}}}
+ return p[0]}
+function apercu(){
+ const f=FORMATS[fmt];
+ if(cvs.width!==f.W){cvs.width=f.W;cvs.height=f.H}
+ ctx.fillStyle=f.fond;ctx.fillRect(0,0,f.W,f.H);
+ const c = (joue && points.length) ? cadrageA(son.currentTime)||{A:crop.A,B:crop.B} : {A:crop.A,B:crop.B};
+ const sB = fmt==='vcons'?vA:vB, e=SRC_W/(vA.videoWidth||640);
+ try{
+  ctx.drawImage(vA,c.A.x/e,c.A.y/e,c.A.w/e,c.A.h/e,f.a.x,f.a.y,f.a.w,f.a.h);
+  ctx.drawImage(sB,c.B.x/e,c.B.y/e,c.B.w/e,c.B.h/e,f.b.x,f.b.y,f.b.w,f.b.h);
+ }catch(err){}
+ requestAnimationFrame(apercu)}
+// glisser, molette, clavier
+for(const k of ['A','B']){
+ const box=vId('b'+k);
+ box.addEventListener('pointerdown',e=>{e.preventDefault();actif=k;
+  const coin=e.target===box?'':e.target.className, v=box.previousElementSibling;
+  const ech=SRC_W/v.clientWidth, d={sx:e.clientX,sy:e.clientY,...crop[k]};
+  const bouge=m=>{const dx=(m.clientX-d.sx)*ech,dy=(m.clientY-d.sy)*ech,c=crop[k];
+   if(coin===''){c.x=d.x+dx;c.y=d.y+dy}
+   else{let w=(coin==='nw'||coin==='sw')?d.w-dx:d.w+dx;
+    c.w=Math.max(300,w);c.h=c.w/ratio(k);
+    c.x=(coin==='nw'||coin==='sw')?d.x+d.w-c.w:d.x;
+    c.y=(coin==='nw'||coin==='ne')?d.y+d.h-c.h:d.y}
+   clamp(k);boites()};
+  const fin=()=>{removeEventListener('pointermove',bouge);removeEventListener('pointerup',fin)};
+  addEventListener('pointermove',bouge);addEventListener('pointerup',fin)});
+ box.parentElement.addEventListener('wheel',e=>{e.preventDefault();actif=k;
+  const c=crop[k],cx=c.x+c.w/2,cy=c.y+c.h/2;
+  c.w=Math.max(300,Math.min(SRC_W,c.w*(e.deltaY>0?1.06:0.943)));
+  c.h=c.w/ratio(k);c.x=cx-c.w/2;c.y=cy-c.h/2;clamp(k);boites()},{passive:false});
+}
+addEventListener('keydown',e=>{
+ if(e.target.tagName==='TEXTAREA')return;
+ if(e.code==='Space'){e.preventDefault();vId('play').click();return}
+ const pas=e.shiftKey?40:8,c=crop[actif];
+ if(e.key==='ArrowLeft')c.x-=pas;else if(e.key==='ArrowRight')c.x+=pas;
+ else if(e.key==='ArrowUp')c.y-=pas;else if(e.key==='ArrowDown')c.y+=pas;else return;
+ e.preventDefault();clamp(actif);boites()});
+// temps
+// Trois elements media independants derivent des qu'on les laisse courir, et
+// un seek pendant la lecture les desynchronise franchement. On met tout en
+// pause, on cherche, on attend que les trois aient fini, puis on repart.
+function attendre(el){return new Promise(r=>{
+ if(el.readyState>=2&&!el.seeking)return r();
+ el.addEventListener('seeked',r,{once:true});setTimeout(r,500)})}
+function place(t,garderLecture){
+ t=Math.max(borneA,Math.min(borneB,t));
+ const repart = garderLecture===undefined ? joue : garderLecture;
+ vA.pause();vB.pause();son.pause();
+ vA.playbackRate=vB.playbackRate=1;
+ vA.currentTime=t;vB.currentTime=t;son.currentTime=t;
+ maj();
+ if(repart){Promise.all([attendre(vA),attendre(vB),attendre(son)])
+   .then(()=>{if(joue){vA.play();vB.play();son.play()}})}}
+function maj(){const t=joue?son.currentTime:vA.currentTime,m=Math.floor(t/60);
+ vId('tc').textContent=String(m).padStart(2,'0')+':'+(t-60*m).toFixed(1).padStart(4,'0');
+ vId('tete').style.left=((t-borneA)/(borneB-borneA)*100)+'%'}
+vId('rail').addEventListener('pointerdown',e=>{
+ if(e.target.classList.contains('mk'))return;
+ const r=e.currentTarget.getBoundingClientRect();place(borneA+(e.clientX-r.left)/r.width*(borneB-borneA))});
+vId('play').onclick=e=>{joue=!joue;
+ if(joue){vA.play();vB.play();son.play();e.target.textContent='Pause'}
+ else{vA.pause();vB.pause();son.pause();vA.playbackRate=vB.playbackRate=1;e.target.textContent='Lecture'}};
+for(const [id,d] of [['m10',-10],['m1',-1],['p1',1],['p10',10]])
+ vId(id).onclick=()=>place((joue?son.currentTime:vA.currentTime)+d);
+setInterval(()=>{if(joue)maj()},80);
+// Recalage des images sur le son.
+// Piege : forcer currentTime declenche un seek, qui prend souvent plus de temps
+// que l'intervalle de surveillance. On relance alors un seek avant la fin du
+// precedent, la video ne se decode jamais et l'image reste figee sur les
+// premieres frames, en boucle. C'est exactement ce qui arrivait a 300 ms.
+// Donc : on ne touche a rien tant qu'un seek est en cours, on ne seek que sur un
+// gros ecart, et on rattrape les petites derives par la VITESSE de lecture, ce
+// qui n'interrompt jamais le decodage.
+setInterval(()=>{
+ if(!joue)return;
+ const t=son.currentTime;
+ if(t>=borneB-0.05){vId('play').click();place(borneB,false);return}
+ for(const v of [vA,vB]){
+  if(v.seeking||v.readyState<3)continue;
+  const d=v.currentTime-t;
+  if(Math.abs(d)>0.60){v.currentTime=t;v.playbackRate=1}
+  else v.playbackRate=Math.max(0.90,Math.min(1.10,1-d*0.6));
+ }
+},500);
+// points
+function rail(){
+ const r=vId('rail');[...r.querySelectorAll('.mk,.zone')].forEach(n=>n.remove());
+ const p=[...points].sort((a,b)=>a.t-b.t);
+ p.forEach((pt,i)=>{
+  if(i<p.length-1&&pt.glisse){const z=document.createElement('div');z.className='zone';
+   z.style.left=((pt.t-borneA)/(borneB-borneA)*100)+'%';z.style.width=((p[i+1].t-pt.t)/(borneB-borneA)*100)+'%';r.appendChild(z)}
+  const d=document.createElement('div');d.className='mk'+(points.indexOf(pt)===sel?' on':'');
+  d.style.left=((pt.t-borneA)/(borneB-borneA)*100)+'%';
+  const m=Math.floor(pt.t/60);d.innerHTML=`<span>${m}:${(pt.t-60*m).toFixed(0).padStart(2,'0')}</span>`;
+  d.onclick=ev=>{ev.stopPropagation();aller(points.indexOf(pt))};
+  r.appendChild(d)})}
+function aller(i){sel=i;const p=points[i];
+ crop.A={...p.A};crop.B={...p.B};place(p.t);boites();table();rail();vId('maj').disabled=false}
+function table(){
+ const tb=vId('pts');tb.innerHTML='';
+ const tri=[...points].sort((a,b)=>a.t-b.t);
+ vId('nbPts').textContent=points.length?points.length+' point(s)':'aucun';
+ tri.forEach(p=>{const i=points.indexOf(p),tr=document.createElement('tr');
+  tr.dataset.i=i;if(i===sel)tr.className='on';
+  const m=Math.floor(p.t/60);
+  tr.innerHTML=`<td>${m}:${(p.t-60*m).toFixed(1).padStart(4,'0')}</td>
+   <td>${p.B.x},${p.B.y}</td>
+   <td><label style="cursor:pointer"><input type="checkbox" ${p.glisse?'checked':''}
+    onchange="points[${i}].glisse=this.checked;sortie();rail()"> glisse</label></td><td></td>`;
+  tr.onclick=e=>{if(e.target.tagName!=='BUTTON')aller(i)};
+  const b=document.createElement('button');b.textContent='x';
+  b.onclick=e=>{e.stopPropagation();points.splice(i,1);sel=-1;vId('maj').disabled=true;table();rail();sortie()};
+  tr.lastChild.appendChild(b);tb.appendChild(tr)});
+ sortie()}
+function nomPassage(){const s=vId('passage');return s.value===''?'':PASSAGES[+s.value][0]}
+function sortie(){
+ vId('sortie').value=JSON.stringify({format:fmt,passage:nomPassage(),source:{w:SRC_W,h:SRC_H},
+  points:[...points].sort((a,b)=>a.t-b.t).map(p=>({t:+p.t.toFixed(2),glisse:!!p.glisse,camera:p.A,ecran:p.B}))})}
+vId('ajouter').onclick=()=>{points.push({t:joue?son.currentTime:vA.currentTime,A:{...crop.A},B:{...crop.B}});
+ sel=points.length-1;vId('maj').disabled=false;table();rail()};
+vId('maj').onclick=()=>{if(sel<0)return;points[sel].A={...crop.A};points[sel].B={...crop.B};table();rail()};
+vId('prec').onclick=()=>{const T=joue?son.currentTime:vA.currentTime;const p=[...points].sort((a,b)=>a.t-b.t).filter(x=>x.t<T-.2);
+ if(p.length)aller(points.indexOf(p[p.length-1]))};
+vId('suiv').onclick=()=>{const T=joue?son.currentTime:vA.currentTime;const p=[...points].sort((a,b)=>a.t-b.t).find(x=>x.t>T+.2);
+ if(p)aller(points.indexOf(p))};
+vId('envoyer').onclick=async()=>{
+ const b=vId('envoyer'), e=vId('etat');
+ if(!points.length){e.textContent='Pose au moins un cadrage avant d\'envoyer.';return}
+ b.textContent='Envoi...';
+ try{const r=await fetch('/enregistrer',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:vId('sortie').value});
+  const j=await r.json();
+  b.textContent='Envoye a Claude';
+  e.innerHTML=`Recu dans <b style="color:#4ef">cadrages/${j.fichier}</b>. Dis-le dans le chat.`;
+  setTimeout(()=>b.textContent='Envoyer a Claude',2500);
+ }catch(err){b.textContent='Envoyer a Claude';e.textContent='Echec, utilise le bouton copier.'}};
+vId('copier').onclick=()=>{const t=vId('sortie');t.select();document.execCommand('copy');
+ const b=vId('copier');b.textContent='Copie';setTimeout(()=>b.textContent='Copier pour Claude',1200)};
+vId('charger').onclick=()=>{const j=prompt('Colle le JSON');if(!j)return;
+ try{const d=JSON.parse(j);points=d.points.map(p=>({t:p.t,glisse:!!p.glisse,A:p.camera,B:p.ecran}));
+  if(d.format)document.querySelector(`#fmt button[data-f="${d.format}"]`).click();
+  sel=-1;table();rail()}catch(e){alert('JSON invalide')}};
+vId('fmt').addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;
+ [...e.currentTarget.children].forEach(b=>b.classList.remove('on'));e.target.classList.add('on');
+ fmt=e.target.dataset.f;vId('infoFmt').textContent=FORMATS[fmt].nom;boites()});
+vId('infoFmt').textContent=FORMATS[fmt].nom;
+const selP=vId('passage');
+PASSAGES.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p[0];selP.appendChild(o)});
+selP.onchange=()=>{
+ if(selP.value===''){borneA=0;borneB=1466.5}
+ else{const p=PASSAGES[+selP.value];borneA=p[1];borneB=p[2]}
+ place(borneA);rail();maj()};
+vA.addEventListener('loadeddata',()=>{boites();table();rail();apercu()});
+addEventListener('resize',boites);
+</script></body></html>
